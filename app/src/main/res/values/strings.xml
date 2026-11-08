@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ClipSync</string>
+    <string name="send_to_pc">Отправить на ПК</string>
+    <string name="send_file_to_pc">Файл на ПК</string>
+</resources>

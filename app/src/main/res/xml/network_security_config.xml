@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext (plain HTTP) is OFF for everything this app initiates.
+
+  Every outbound call the app makes - /pair and /push TO the PC
+  (network/SyncClient.kt) - is pinned HTTPS (network/PinnedHttp.kt,
+  PROTOCOL.md §2a), so nothing needs cleartext permission.
+
+  The phone's own NanoHTTPD receiver (service/ReceiverService.kt) accepts
+  plain-HTTP pushes FROM the PC on a listening ServerSocket. This policy
+  governs only connections the app *opens* through the platform networking
+  stack, not sockets it passively accepts, so the receiver is unaffected by
+  turning cleartext off. (The previous version of this file kept "true" as
+  an unverified safety margin; that margin only widened the attack surface.
+  The Android docs describe cleartextTrafficPermitted purely as an outbound
+  opt-in/opt-out.)
+
+  Plain HTTP on the inbound direction never exposes clipboard content:
+  every /push body, both directions, is AES-256-GCM sealed under a key
+  derived from the pair's X25519 exchange before it touches HTTP at all.
+  What a passive LAN observer can still see is metadata (that two devices
+  talk, when, roughly how much). See PROTOCOL.md §2a.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

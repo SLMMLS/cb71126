@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- NOT optional. Android 14+ (targetSdk 34+) refuses startForeground() with
+         foregroundServiceType="connectedDevice" unless the app declares at least one of:
+         CHANGE_NETWORK_STATE, CHANGE_WIFI_STATE, CHANGE_WIFI_MULTICAST_STATE, NFC,
+         TRANSMIT_IR (or holds a Bluetooth/UWB runtime permission). Without this line
+         ReceiverService throws SecurityException in onCreate() and the app crashes
+         right after a successful pairing. It's a normal (install-time) permission. -->
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <application
+        android:name=".ClipSyncApp"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Handles Android's Share Sheet: "Share" -> ClipSync from any app.
+             This is the primary way of sending TO the PC without opening
+             the app, since background clipboard reads are not available. -->
+        <activity
+            android:name=".share.ShareReceiverActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity>
+
+        <!-- "Отправить на ПК" in the text-selection menu of other apps (select text -> "..." or the
+             overflow of the selection toolbar). The point-and-send path: no copying, no opening
+             ClipSync, just the exact piece of text that is needed goes to the PC. An alias rather
+             than a third filter on the activity above because the menu shows the *label*, and the
+             activity's own label (the app name) would be a useless entry there. -->
+        <activity-alias
+            android:name=".share.SendSelectedTextAlias"
+            android:targetActivity=".share.ShareReceiverActivity"
+            android:exported="true"
+            android:label="@string/send_to_pc">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- "Файл на ПК" in the share sheet: any file from any app, one or several. A separate activity
+             (and so a separate entry in the sheet) from the one above, which turns text and pictures
+             into clipboard entries; this one sends the file itself, untouched. -->
+        <activity
+            android:name=".share.ShareFileActivity"
+            android:exported="true"
+            android:label="@string/send_file_to_pc"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".service.ReceiverService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+
+        <!-- Keeps the app alive while files are being sent to the PC. The same foreground-service type
+             (and so the same, already declared, permissions) as the receiver: it is the same kind of
+             work - talking to the paired PC over the network. -->
+        <service
+            android:name=".files.TransferService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+
+        <receiver
+            android:name=".boot.BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- The "Выключить" button of the receiver's notification. Not exported: only that
+             notification's own PendingIntent (an explicit component) can reach it. -->
+        <receiver
+            android:name=".service.StopReceiver"
+            android:exported="false" />
+
+    </application>
+</manifest>
